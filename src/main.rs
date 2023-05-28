@@ -1,20 +1,17 @@
 use serde_json::Value;
-use reqwest::Client;
 use serde::{Serialize, Deserialize};
-use chrono::{DateTime, Utc, TimeZone, NaiveDateTime};
+use chrono::{NaiveDateTime};
 use std::collections::HashMap;
-use std::env;
 use deltalake::action::*;
 use deltalake::arrow::array::*;
 use deltalake::arrow::record_batch::RecordBatch;
 use deltalake::writer::{DeltaWriter, RecordBatchWriter};
 use deltalake::*;
 use datafusion::prelude::SessionContext;
-
 use object_store::path::Path;
 use std::sync::Arc;
-
 use rayon::prelude::*;
+
 
 #[derive(Debug, Serialize, Deserialize)]
 struct SolarWind {
@@ -49,7 +46,7 @@ async fn solar_wind_payload() -> Vec<Value> {
 fn payload_to_solarwind(response: Vec<Value>) -> Vec<SolarWind> {
       
     response
-        .iter()
+        .par_iter()
         .map(|x| SolarWind {
             timestamp: NaiveDateTime::parse_from_str(&x[0].to_string().replace("\"",""), "%Y-%m-%d %H:%M:%S%.3f").unwrap().timestamp(),
             time_tag: x[0].as_str().unwrap().to_string(),
@@ -63,10 +60,8 @@ fn payload_to_solarwind(response: Vec<Value>) -> Vec<SolarWind> {
 
 async fn filtered_solar_wind_data(timestamp: i64, solar_wind: Vec<SolarWind>) -> Vec<SolarWind> {
 
-    let solar_wind = payload_to_solarwind(solar_wind_payload().await);
-
     let filtered_solar_wind = solar_wind
-        .into_iter()
+        .into_par_iter()
         .filter(|x| x.timestamp > timestamp)
         .collect::<Vec<SolarWind>>();
 
@@ -136,25 +131,23 @@ async fn solar_wind_to_batch(table: &DeltaTable, records: Vec<SolarWind>) -> Rec
     
     let arrow_schema_ref = Arc::new(arrow_schema);
 
-    let table_uri = "./solar_wind".to_string();
-
-    let solar_wind = filtered_solar_wind_data(max_solar_wind_timestamp(table_uri).await, payload_to_solarwind(solar_wind_payload().await)).await;
+    let solar_wind = records;
 
     let arrow_array: Vec<Arc<dyn Array>> = vec![
-        Arc::new(Int64Array::from(solar_wind.iter().map(|x| x.timestamp.clone()).collect::<Vec<i64>>())),
-        Arc::new(StringArray::from(solar_wind.iter().map(|x| x.time_tag.clone()).collect::<Vec<String>>())),
-        Arc::new(Float64Array::from(solar_wind.iter().map(|x| x.speed.clone()).collect::<Vec<f64>>())),
-        Arc::new(Float64Array::from(solar_wind.iter().map(|x| x.density.clone()).collect::<Vec<f64>>())),
-        Arc::new(Float64Array::from(solar_wind.iter().map(|x| x.temperature.clone()).collect::<Vec<f64>>())),
-        Arc::new(Float64Array::from(solar_wind.iter().map(|x| x.bt.clone()).collect::<Vec<f64>>())),
-        Arc::new(Float64Array::from(solar_wind.iter().map(|x| x.bz.clone()).collect::<Vec<f64>>())),
+        Arc::new(Int64Array::from(solar_wind.par_iter().map(|x| x.timestamp.clone()).collect::<Vec<i64>>())),
+        Arc::new(StringArray::from(solar_wind.par_iter().map(|x| x.time_tag.clone()).collect::<Vec<String>>())),
+        Arc::new(Float64Array::from(solar_wind.par_iter().map(|x| x.speed.clone()).collect::<Vec<f64>>())),
+        Arc::new(Float64Array::from(solar_wind.par_iter().map(|x| x.density.clone()).collect::<Vec<f64>>())),
+        Arc::new(Float64Array::from(solar_wind.par_iter().map(|x| x.temperature.clone()).collect::<Vec<f64>>())),
+        Arc::new(Float64Array::from(solar_wind.par_iter().map(|x| x.bt.clone()).collect::<Vec<f64>>())),
+        Arc::new(Float64Array::from(solar_wind.par_iter().map(|x| x.bz.clone()).collect::<Vec<f64>>())),
     ];
     
     RecordBatch::try_new(arrow_schema_ref, arrow_array).expect("Failed to create RecordBatch")
 }
 
 async fn max_solar_wind_timestamp(table_uri: String) -> i64 {
-    let mut ctx = SessionContext::new();
+    let ctx = SessionContext::new();
     let table = deltalake::open_table(table_uri)
         .await
         .unwrap();
@@ -183,7 +176,7 @@ async fn create_initialized_table(table_path: &Path) -> DeltaTable {
     );
     commit_info.insert(
         "userName".to_string(),
-        serde_json::Value::String("sidefxs".to_string()),
+        serde_json::Value::String("jayaro".to_string()),
     );
 
     let protocol = Protocol {
@@ -219,8 +212,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Err(err) => Err(err).unwrap(),
     };
 
-    let mut writer =
-        RecordBatchWriter::for_table(&table).expect("Failed to make RecordBatchWriter");
+    let mut writer = RecordBatchWriter::for_table(&table).expect("Failed to make RecordBatchWriter");
 
     let timestamp = max_solar_wind_timestamp("./solar_wind".to_string()).await;
 
@@ -242,11 +234,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         partition_by: None,
         predicate: None,
     }), None).await?;
-
-    // let adds = writer
-    //     .flush_and_commit(&mut table)
-    //     .await
-    //     .expect("Failed to flush write");
 
     Ok(())
 
