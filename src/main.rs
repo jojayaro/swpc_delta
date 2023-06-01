@@ -1,3 +1,5 @@
+use deltalake::operations::optimize::OptimizeBuilder;
+use deltalake::operations::transaction;
 use serde_json::Value;
 use serde::{Serialize, Deserialize};
 use chrono::{NaiveDateTime};
@@ -69,8 +71,7 @@ async fn filtered_solar_wind_data(timestamp: i64, solar_wind: Vec<SolarWind>) ->
 
 }
 
-fn solar_wind_schema() -> Schema {
-    Schema::new(
+fn sw_columns() -> Vec<SchemaField> {
         vec![
             SchemaField::new(
                 "timestamp".to_string()
@@ -115,7 +116,6 @@ fn solar_wind_schema() -> Schema {
                 , HashMap::new()
             )
         ]
-    )
 }
 
 async fn solar_wind_to_batch(table: &DeltaTable, records: Vec<SolarWind>) -> RecordBatch {
@@ -165,33 +165,19 @@ async fn max_solar_wind_timestamp(table_uri: String) -> i64 {
 
 async fn create_initialized_table(table_path: &Path) -> DeltaTable {
     
-    let mut table = DeltaTableBuilder::from_uri(table_path).build().unwrap();
-    
-    let table_schema = solar_wind_schema();
-    
-    let mut commit_info = serde_json::Map::<String, serde_json::Value>::new();
-    commit_info.insert(
-        "operation".to_string(),
-        serde_json::Value::String("CREATE TABLE".to_string()),
-    );
-    commit_info.insert(
-        "userName".to_string(),
-        serde_json::Value::String("jayaro".to_string()),
-    );
-
-    let protocol = Protocol {
-        min_reader_version: 1,
-        min_writer_version: 1,
-    };
-
-    let metadata = DeltaTableMetaData::new(None, None, None, table_schema, vec![], HashMap::new());
-
-    table
-        .create(metadata, protocol, Some(commit_info), None)
+    DeltaOps::try_from_uri(table_path)
         .await
-        .unwrap();
+        .unwrap()
+        .create()
+        .with_save_mode(SaveMode::Append)
+        .with_columns(sw_columns())
+        .await
+        .unwrap()
+}
 
-    table
+async fn optimize_delta(table_path: &Path) {
+    let mut table = deltalake::open_table(table_path).await.unwrap();
+    let (table, metrics) = OptimizeBuilder::new(table.object_store(), table.state).await.unwrap();
 }
 
 #[tokio::main]
@@ -218,22 +204,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let solar_wind = filtered_solar_wind_data(timestamp, payload_to_solarwind(solar_wind_payload().await)).await;
 
-    let batch = solar_wind_to_batch(&table, solar_wind).await;
+    if solar_wind.len() > 0 {
+        let batch = solar_wind_to_batch(&table, solar_wind).await;
 
-    writer.write(batch).await?;
+        optimize_delta(&table_path).await;
+    
+        writer.write(batch).await?;
+    
+        writer
+            .flush_and_commit(&mut table)
+            .await
+            .expect("Failed to flush write");
 
-    let actions: Vec<action::Action> = writer.flush().await?.iter()
-        .map(|add| Action::add(add.clone()))
-        .collect();
-    let mut transaction = table.create_transaction(Some(DeltaTransactionOptions::new(/*max_retry_attempts=*/3)));
-    
-    transaction.add_actions(actions);
-    
-    transaction.commit(Some(DeltaOperation::Write {
-        mode: SaveMode::Append,
-        partition_by: None,
-        predicate: None,
-    }), None).await?;
+    }
 
     Ok(())
 
