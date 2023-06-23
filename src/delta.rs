@@ -1,5 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
-use deltalake::{Path, DeltaTable, DeltaOps, action::SaveMode, operations::optimize::OptimizeBuilder, SchemaField, SchemaDataType, arrow::{record_batch::RecordBatch, array::{Int64Array, StringArray, Float64Array, Array}}, Schema, datafusion::prelude::SessionContext};
+use deltalake::{Path, DeltaTable, DeltaOps, action::SaveMode, operations::{optimize::OptimizeBuilder, vacuum::VacuumBuilder}, SchemaField, SchemaDataType, arrow::{record_batch::RecordBatch, array::{Int64Array, StringArray, Float64Array, Array}}, Schema, datafusion::prelude::SessionContext};
 use rayon::prelude::*;
 use crate::swpc::SolarWind;
 
@@ -114,4 +114,11 @@ pub async fn max_solar_wind_timestamp(table_uri: String) -> i64 {
     let max_timestamp = batches[0].column(0).as_any().downcast_ref::<Int64Array>().unwrap().value(0);
 
     max_timestamp
+}
+
+pub async fn vacuum_delta(table_path: &Path) {
+    
+        let mut table = deltalake::open_table(table_path).await.unwrap();
+        let (table, metrics) = VacuumBuilder::new(table.object_store(), table.state).await.unwrap();
+    
 }

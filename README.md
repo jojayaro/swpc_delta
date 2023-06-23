@@ -1,5 +1,5 @@
 # SWPC Solar Wind Data to Delta Lake in Rust
-This repo was created as a Data Engineering POC of how to use Rust to ingest streaming data. 
+This repo was created as a Data Engineering POC of how to use Rust to ingest data from an API with a non standard payload. 
 
 SWPC provides real time solar wind data with 1 min updates. This is an interesting dataset to ingest because it is not a JSON standard payload and it updates frequent enough to pose a challenge. Request payload contains data for the last hour so if there is a failure with the requests the pipeline can recover if it is within the last hour. Future update will include the posibility of using the 7 day dataset in case that a failure lasts longer. Code will also be improved to handle the large amount of files due to the 1 minute updates.
 

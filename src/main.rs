@@ -1,6 +1,6 @@
 use deltalake::{Path, DeltaTableError, writer::{RecordBatchWriter, DeltaWriter}};
 use swpc_delta::{
-    delta::{create_initialized_table, max_solar_wind_timestamp, solar_wind_to_batch, optimize_delta}, 
+    delta::{create_initialized_table, max_solar_wind_timestamp, solar_wind_to_batch, optimize_delta, vacuum_delta}, 
     swpc::{filtered_solar_wind_data, payload_to_solarwind, solar_wind_payload}
 };
 
@@ -29,10 +29,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let solar_wind = filtered_solar_wind_data(timestamp, payload_to_solarwind(solar_wind_payload().await)).await;
 
     if solar_wind.len() > 0 {
+        
         let batch = solar_wind_to_batch(&table, solar_wind).await;
 
-        optimize_delta(&table_path).await;
-    
         writer.write(batch).await?;
     
         writer
@@ -40,11 +39,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await
             .expect("Failed to flush write");
 
+        optimize_delta(&table_path).await;
+
+        vacuum_delta(&table_path).await;
+
     }
 
     Ok(())
 
 }
-
-
-    
