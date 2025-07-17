@@ -18,13 +18,13 @@ async fn test_table_creation() {
 }
 
 #[tokio::test]
-async fn test_data_ingestion() {
+async fn test_data_ingestion() -> Result<(), Box<dyn std::error::Error>> {
     let table_uri = "./test_data_ingestion".to_string();
     let table_path = Path::from(table_uri.as_ref());
 
     let mut table = create_initialized_table_overwrite(&table_path).await.unwrap();
 
-    let solar_wind_data = payload_to_solarwind(solar_wind_payload().await);
+    let solar_wind_data = payload_to_solarwind(solar_wind_payload().await?)?;
     let batch = solar_wind_to_batch(&table, solar_wind_data).await;
 
     let mut writer = RecordBatchWriter::for_table(&table).expect("Failed to make RecordBatchWriter");
@@ -35,17 +35,18 @@ async fn test_data_ingestion() {
 
     // Clean up
     let _ = std::fs::remove_dir_all(&table_uri);
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_optimize_and_vacuum() {
+async fn test_optimize_and_vacuum() -> Result<(), Box<dyn std::error::Error>> {
     let table_uri = "./test_optimize_and_vacuum".to_string();
     let table_path = Path::from(table_uri.as_ref());
 
     let mut table = create_initialized_table_overwrite(&table_path).await.unwrap();
 
     // Ingest some data to optimize and vacuum
-    let solar_wind_data = payload_to_solarwind(solar_wind_payload().await);
+    let solar_wind_data = payload_to_solarwind(solar_wind_payload().await?)?;
     let batch = solar_wind_to_batch(&table, solar_wind_data).await;
 
     let mut writer = RecordBatchWriter::for_table(&table).expect("Failed to make RecordBatchWriter");
@@ -61,17 +62,18 @@ async fn test_optimize_and_vacuum() {
 
     // Clean up
     let _ = std::fs::remove_dir_all(&table_uri);
+    Ok(())
 }
 
 #[tokio::test]
-async fn test_max_solar_wind_timestamp() {
+async fn test_max_solar_wind_timestamp() -> Result<(), Box<dyn std::error::Error>> {
     let table_uri = "./test_max_solar_wind_timestamp".to_string();
     let table_path = Path::from(table_uri.as_ref());
 
     let mut table = create_initialized_table_overwrite(&table_path).await.unwrap();
 
     // Ingest some data
-    let solar_wind_data = payload_to_solarwind(solar_wind_payload().await);
+    let solar_wind_data = payload_to_solarwind(solar_wind_payload().await?)?;
     let batch = solar_wind_to_batch(&table, solar_wind_data).await;
 
     let mut writer = RecordBatchWriter::for_table(&table).expect("Failed to make RecordBatchWriter");
@@ -85,4 +87,5 @@ async fn test_max_solar_wind_timestamp() {
 
     // Clean up
     let _ = std::fs::remove_dir_all(&table_uri);
+    Ok(())
 }

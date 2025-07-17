@@ -1,0 +1,1 @@
+select * from delta_scan('./solar_wind') order by timestamp desc limit 10;

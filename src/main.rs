@@ -41,9 +41,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Max solar wind timestamp: {}", timestamp);
 
     info!("Fetching solar wind payload.");
-    let solar_wind_payload_data = solar_wind_payload().await;
+    let solar_wind_payload_data = solar_wind_payload().await?;
     info!("Filtering solar wind data.");
-    let solar_wind = filtered_solar_wind_data(timestamp, payload_to_solarwind(solar_wind_payload_data)).await;
+    let solar_wind = filtered_solar_wind_data(timestamp, payload_to_solarwind(solar_wind_payload_data)?).await;
 
     if solar_wind.len() > 0 {
         info!("{} new solar wind records found. Ingesting data.", solar_wind.len());
@@ -56,15 +56,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await
             .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
 
-        info!("Data ingestion complete. Optimizing table.");
-        optimize_delta(&table_path).await;
-        info!("Table optimization complete. Vacuuming table.");
-        vacuum_delta(&table_path).await;
-        info!("Table vacuum complete.");
-
+        info!("Data ingestion complete.");
     } else {
         info!("No new solar wind records to ingest.");
     }
+
+    info!("Optimizing table.");
+    optimize_delta(&table_path).await;
+    info!("Table optimization complete. Vacuuming table.");
+    vacuum_delta(&table_path).await;
+    info!("Table vacuum complete.");
 
     Ok(())
 
