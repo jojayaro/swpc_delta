@@ -1,4 +1,4 @@
-use deltalake::{Path, DeltaTableError, writer::{RecordBatchWriter, DeltaWriter}};
+use deltalake::{DeltaTableError, writer::{RecordBatchWriter, DeltaWriter}};
 use swpc_delta::{
     delta::{create_initialized_table, max_solar_wind_timestamp, solar_wind_to_batch, optimize_delta, vacuum_delta}, 
     swpc::{filtered_solar_wind_data, payload_to_solarwind, solar_wind_payload}
@@ -11,7 +11,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let table_uri = "/solar_wind/".to_string(); //std::env::var("TABLE_URI")?;
 
-    let table_path: Path = Path::from(table_uri.as_ref());
+    let table_path = deltalake::Path::from(table_uri.as_ref());
 
     let maybe_table = deltalake::open_table(&table_path).await;
     let mut table = match maybe_table {

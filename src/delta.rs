@@ -1,5 +1,21 @@
-use std::{collections::HashMap, sync::Arc};
-use deltalake::{Path, DeltaTable, DeltaOps, action::SaveMode, operations::{optimize::OptimizeBuilder, vacuum::VacuumBuilder}, SchemaField, SchemaDataType, arrow::{record_batch::RecordBatch, array::{Int64Array, StringArray, Float64Array, Array}}, Schema, datafusion::prelude::SessionContext};
+use std::sync::Arc;
+use deltalake::{
+    arrow::{array::{Array, Int64Array, Float64Array, StringArray}, record_batch::RecordBatch},
+    operations::{
+        optimize::OptimizeBuilder,
+        vacuum::VacuumBuilder,
+        DeltaOps
+    },
+    protocol::SaveMode,
+    DeltaTable,
+    Path,
+};
+
+use deltalake::kernel::{StructField, DataType, PrimitiveType};
+use delta_kernel::engine::arrow_conversion::TryIntoArrow;
+
+use datafusion::prelude::SessionContext;
+
 use rayon::prelude::*;
 use crate::swpc::SolarWind;
 
@@ -17,68 +33,54 @@ pub async fn create_initialized_table(table_path: &Path) -> DeltaTable {
 
 pub async fn optimize_delta(table_path: &Path) {
 
-    let mut table = deltalake::open_table(table_path).await.unwrap();
-    let (table, metrics) = OptimizeBuilder::new(table.object_store(), table.state).await.unwrap();
+    let table = deltalake::open_table(table_path).await.unwrap();
+    let (_table, _metrics) = OptimizeBuilder::new(table.log_store(), table.state.unwrap()).await.unwrap();
 
 }
 
-pub fn sw_columns() -> Vec<SchemaField> {
+pub fn sw_columns() -> Vec<StructField> {
     vec![
-        SchemaField::new(
-            "timestamp".to_string()
-            , SchemaDataType::primitive("long".to_string())
-            , true
-            , HashMap::new()
+        StructField::new(
+            "timestamp".to_string(),
+            DataType::Primitive(PrimitiveType::Long),
+            true,
         ),
-        SchemaField::new(
-            "time_tag".to_string()
-            , SchemaDataType::primitive("string".to_string())
-            , true
-            , HashMap::new()
+        StructField::new(
+            "time_tag".to_string(),
+            DataType::Primitive(PrimitiveType::String),
+            true,
         ),
-        SchemaField::new(
-            "speed".to_string()
-            , SchemaDataType::primitive("double".to_string())
-            , true
-            , HashMap::new()
+        StructField::new(
+            "speed".to_string(),
+            DataType::Primitive(PrimitiveType::Double),
+            true,
         ),
-        SchemaField::new(
-            "density".to_string()
-            , SchemaDataType::primitive("double".to_string())
-            , true
-            , HashMap::new()
+        StructField::new(
+            "density".to_string(),
+            DataType::Primitive(PrimitiveType::Double),
+            true,
         ),
-        SchemaField::new(
-            "temperature".to_string()
-            , SchemaDataType::primitive("double".to_string())
-            , true
-            , HashMap::new()
+        StructField::new(
+            "temperature".to_string(),
+            DataType::Primitive(PrimitiveType::Double),
+            true,
         ),
-        SchemaField::new(
-            "bt".to_string()
-            , SchemaDataType::primitive("double".to_string())
-            , true
-            , HashMap::new()
+        StructField::new(
+            "bt".to_string(),
+            DataType::Primitive(PrimitiveType::Double),
+            true,
         ),
-        SchemaField::new(
-            "bz".to_string()
-            , SchemaDataType::primitive("double".to_string())
-            , true
-            , HashMap::new()
+        StructField::new(
+            "bz".to_string(),
+            DataType::Primitive(PrimitiveType::Double),
+            true,
         )
     ]
 }
 
 pub async fn solar_wind_to_batch(table: &DeltaTable, records: Vec<SolarWind>) -> RecordBatch {
     
-    let metadata = table
-        .get_metadata()
-        .expect("Failed to get metadata");
-
-    let arrow_schema = <deltalake::arrow::datatypes::Schema as TryFrom<&Schema>>::try_from(
-        &metadata.schema.clone(),
-    )
-    .expect("Failed to convert to arrow schema");
+    let arrow_schema = table.schema().unwrap().try_into_arrow().expect("Failed to convert to arrow schema");
 
     let arrow_schema_ref = Arc::new(arrow_schema);
 
@@ -116,9 +118,9 @@ pub async fn max_solar_wind_timestamp(table_uri: String) -> i64 {
     max_timestamp
 }
 
-pub async fn vacuum_delta(table_path: &Path) {
+pub async fn vacuum_delta(table_path: &deltalake::Path) {
     
-        let mut table = deltalake::open_table(table_path).await.unwrap();
-        let (table, metrics) = VacuumBuilder::new(table.object_store(), table.state).await.unwrap();
+        let table = deltalake::open_table(table_path).await.unwrap();
+        let (_table, _metrics) = VacuumBuilder::new(table.log_store(), table.state.unwrap()).await.unwrap();
     
 }

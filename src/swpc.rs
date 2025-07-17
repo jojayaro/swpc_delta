@@ -38,13 +38,13 @@ pub fn payload_to_solarwind(response: Vec<Value>) -> Vec<SolarWind> {
     response
         .par_iter()
         .map(|x| SolarWind {
-            timestamp: NaiveDateTime::parse_from_str(&x[0].to_string().replace("\"",""), "%Y-%m-%d %H:%M:%S%.3f").unwrap().timestamp(),
+            timestamp: NaiveDateTime::parse_from_str(&x[0].to_string().replace('"', ""), "%Y-%m-%d %H:%M:%S%.3fZ").unwrap().and_utc().timestamp(),
             time_tag: x[0].as_str().unwrap().to_string(),
             speed: x[1].to_string().replace("\"","").parse::<f64>().unwrap_or(0.0),
             density: x[2].to_string().replace("\"","").parse::<f64>().unwrap_or(0.0),
             temperature: x[3].to_string().replace("\"","").parse::<f64>().unwrap_or(0.0),
-            bt: x[7].to_string().replace("\"","").parse::<f64>().unwrap_or(0.0),
-            bz: x[6].to_string().replace("\"","").parse::<f64>().unwrap_or(0.0)
+            bt: x[7].to_string().replace('"', "").parse::<f64>().unwrap_or(0.0),
+            bz: x[6].to_string().replace('"', "").parse::<f64>().unwrap_or(0.0)
         }).collect::<Vec<SolarWind>>()
 }
 
