@@ -9,6 +9,7 @@ use deltalake::{
     protocol::SaveMode,
     DeltaTable,
     Path,
+    DeltaTableError,
 };
 
 use deltalake::kernel::{StructField, DataType, PrimitiveType};
@@ -20,22 +21,32 @@ use rayon::prelude::*;
 use crate::swpc::SolarWind;
 
 pub async fn create_initialized_table(table_path: &Path) -> Result<DeltaTable, DeltaTableError> {
-    
-    DeltaOps::try_from_uri(table_path)
-        .await
-        .unwrap()
+    let ops = DeltaOps::try_from_uri(table_path).await?;
+    let table = ops
         .create()
-        .with_save_mode(SaveMode::Append)
+        .with_save_mode(SaveMode::ErrorIfExists)
         .with_columns(sw_columns())
-        .await
-        .unwrap()
+        .await?;
+    Ok(table)
+}
+
+pub async fn create_initialized_table_overwrite(table_path: &Path) -> Result<DeltaTable, DeltaTableError> {
+    let ops = DeltaOps::try_from_uri(table_path).await?;
+    let table = ops
+        .create()
+        .with_save_mode(SaveMode::Overwrite)
+        .with_columns(sw_columns())
+        .await?;
+    Ok(table)
 }
 
 pub async fn optimize_delta(table_path: &Path) {
-
-    let table = deltalake::open_table(table_path).await.unwrap();
-    let (_table, _metrics) = OptimizeBuilder::new(table.log_store(), table.state.unwrap()).await.unwrap();
-
+    let _ = DeltaOps::try_from_uri(table_path)
+        .await
+        .unwrap()
+        .optimize()
+        .await
+        .unwrap();
 }
 
 pub fn sw_columns() -> Vec<StructField> {
@@ -100,12 +111,19 @@ pub async fn solar_wind_to_batch(table: &DeltaTable, records: Vec<SolarWind>) ->
 }
 
 pub async fn max_solar_wind_timestamp(table_uri: String) -> i64 {
+    use chrono::{Utc, Duration};
 
     let ctx = SessionContext::new();
 
-    let table = deltalake::open_table(table_uri)
-        .await
-        .unwrap();
+    let table = match deltalake::open_table(&table_uri).await {
+        Ok(table) => table,
+        Err(_) => {
+            // Default: 24h before today (midnight UTC)
+            let now = Utc::now().date_naive().and_hms_opt(0, 0, 0).unwrap();
+            let default = now - Duration::hours(24);
+            return default.and_utc().timestamp();
+        }
+    };
     ctx.register_table("solar_wind", Arc::new(table)).unwrap();
 
     let batches = ctx
@@ -119,8 +137,10 @@ pub async fn max_solar_wind_timestamp(table_uri: String) -> i64 {
 }
 
 pub async fn vacuum_delta(table_path: &deltalake::Path) {
-    
-        let table = deltalake::open_table(table_path).await.unwrap();
-        let (_table, _metrics) = VacuumBuilder::new(table.log_store(), table.state.unwrap()).await.unwrap();
-    
+    let _ = DeltaOps::try_from_uri(table_path)
+        .await
+        .unwrap()
+        .vacuum()
+        .await
+        .unwrap();
 }

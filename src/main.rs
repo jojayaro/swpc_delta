@@ -22,7 +22,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
         Err(DeltaTableError::NotATable(_)) => {
             info!("Delta Lake table not found. Creating a new one.");
-            create_initialized_table(&table_path).await
+            match create_initialized_table(&table_path).await {
+                Ok(table) => table,
+                Err(err) => {
+                    error!("Failed to create Delta Lake table: {}", err);
+                    return Err(Box::new(err) as Box<dyn std::error::Error>);
+                }
+            }
         }
         Err(err) => {
             error!("Failed to open Delta Lake table: {}", err);
@@ -43,12 +49,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("{} new solar wind records found. Ingesting data.", solar_wind.len());
         let batch = solar_wind_to_batch(&table, solar_wind).await;
 
-        let mut writer = RecordBatchWriter::for_table(&table).expect("Failed to make RecordBatchWriter");
+        let mut writer = RecordBatchWriter::for_table(&table).map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
         writer.write(batch).await.map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
-    
         writer
             .flush_and_commit(&mut table)
-            .await.map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
 
         info!("Data ingestion complete. Optimizing table.");
         optimize_delta(&table_path).await;
