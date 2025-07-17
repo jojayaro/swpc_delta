@@ -16,3 +16,9 @@ deltalake = { version = "0.27.0", features = ["azure", "datafusion"] }
 object_store = "0.5.6"
 datafusion = "48.0.1"
 delta_kernel = "0.13.0"
+log = "0.4"
+env_logger = "0.9"
+
+[dev-dependencies]
+tokio = { version = "1.20.1", features = ["macros", "rt-multi-thread"] }
+tempfile = "3.3.0"

@@ -19,7 +19,7 @@ use datafusion::prelude::SessionContext;
 use rayon::prelude::*;
 use crate::swpc::SolarWind;
 
-pub async fn create_initialized_table(table_path: &Path) -> DeltaTable {
+pub async fn create_initialized_table(table_path: &Path) -> Result<DeltaTable, DeltaTableError> {
     
     DeltaOps::try_from_uri(table_path)
         .await

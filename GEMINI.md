@@ -25,10 +25,6 @@ This document summarizes the changes made to upgrade the `deltalake` package to 
   - Corrected string replacement logic for parsing `f64` values by properly escaping double quotes.
   - Adjusted the timestamp format string in `NaiveDateTime::parse_from_str` to include `Z` for UTC.
 
-## Current Status:
-
-- The project now builds successfully with `deltalake` 0.27.0.
-
 ## Next Steps:
 
 - Add comprehensive unit tests for the updated functionalities.
