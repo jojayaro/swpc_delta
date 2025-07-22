@@ -9,7 +9,7 @@ use log::{info, error};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
-    let table_uri = "/solar_wind/".to_string();
+    let table_uri = "solar_wind/".to_string();
 
     info!("Attempting to open Delta Lake table at: {}", table_uri);
     let table_path = deltalake::Path::from(table_uri.as_ref());
@@ -37,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     info!("Fetching max solar wind timestamp.");
-    let timestamp = max_solar_wind_timestamp("./solar_wind".to_string()).await;
+    let timestamp = max_solar_wind_timestamp("solar_wind/".to_string()).await;
     info!("Max solar wind timestamp: {}", timestamp);
 
     info!("Fetching solar wind payload.");
