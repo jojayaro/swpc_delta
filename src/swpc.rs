@@ -15,7 +15,7 @@ pub struct SolarWind {
 }
 
 pub async fn solar_wind_payload() -> Result<Vec<Value>, reqwest::Error> {
-    let solarwind_url = "https://services.swpc.noaa.gov/products/geospace/propagated-solar-wind-1-hour.json";
+    let solarwind_url = "https://services.swpc.noaa.gov/products/geospace/propagated-solar-wind.json";
 
     let response = reqwest::get(solarwind_url)
         .await?
