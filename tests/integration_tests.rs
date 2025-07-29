@@ -2,7 +2,7 @@ use deltalake::writer::{DeltaWriter, RecordBatchWriter};
 use deltalake::Path;
 use swpc_delta::delta::{
     create_initialized_table_with_columns_overwrite, max_solar_wind_timestamp, optimize_delta,
-    solar_wind_to_batch, vacuum_delta, sw_columns,
+    solar_wind_to_batch, sw_columns, vacuum_delta,
 };
 use swpc_delta::swpc::{payload_to_solarwind, solar_wind_payload};
 

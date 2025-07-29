@@ -21,8 +21,8 @@ This repository demonstrates a high-performance Data Engineering Proof of Concep
   - `rayon`: Parallel data processing
   - `chrono`: Date and time handling
   - `clap`: Command-line argument parsing
-- `env_logger`: Logging support
-- `thiserror`: Error handling
+  - `env_logger`: Logging support
+  - `thiserror`: Error handling
 
 ## Development Best Practices
 
@@ -74,3 +74,68 @@ This repository demonstrates a high-performance Data Engineering Proof of Concep
    - Writes data to Delta Lake format
    - Performs table optimization and vacuuming for efficient storage
 
+---
+
+# SWPC Delta Lake Rust Project Optimization Plan
+
+### 1. Code Structure & Modularity
+- Separate parsing, I/O, error handling, and CLI logic into distinct modules.
+- Refactor repeated code (batch creation, timestamp queries) into reusable functions.
+- Avoid unsafe code and dependencies.
+
+### 2. Performance
+- Use iterators and streaming APIs for large data sets; avoid collecting into Vec unless necessary.
+- Use Rayon parallelism only for large data; prefer sequential for small batches.
+- Optimize batch sizes for Delta Lake writes to balance memory and speed.
+- Always run `optimize` and `vacuum` after each incremental load to minimize file count.
+
+### 3. Error Handling
+- Use `thiserror` for rich error types; log errors with context.
+- Document fallback logic (e.g., default timestamps) and make it configurable.
+
+### 4. Testing & Validation
+- Cover all public APIs and edge cases with unit and integration tests.
+- Use property-based testing (e.g., `proptest`) for data transformation logic.
+- Benchmark performance-critical paths with `cargo bench`.
+
+### 5. Documentation
+- Document all public items with examples.
+- Add inline comments for non-obvious logic, especially error handling and parallel code.
+- Document recovery strategies in error messages.
+
+### 6. CI/CD & Tooling
+- Run `cargo clippy` and `cargo fmt` before every commit.
+- Automate tests with GitHub Actions or similar.
+- Use Dependabot or similar for dependency updates.
+
+### 7. Progress Reporting
+- Use `env_logger` for progress and error reporting.
+- Print progress for long-running operations.
+
+### 8. Data Pipeline Improvements
+- Move timestamp filtering to the earliest possible stage.
+- Validate payloads before transformation; fail fast on malformed data.
+- Validate Delta Lake schema compatibility before writes.
+
+---
+
+## Delta Lake Table Maintenance Best Practices
+- Always run `optimize` and `vacuum` after each incremental load to reduce file fragmentation and improve query performance.
+- Document this workflow in `.clinerules` and code comments for future maintainers.
+- Monitor table file count and size periodically; adjust maintenance frequency if data volume increases.
+
+## Other Recommendations
+- Use parallelism only where beneficial.
+- Keep batch sizes small and memory usage minimal.
+- Maintain strong error handling and documentation.
+
+## Rust Best Practices for SWPC Delta Lake
+- Prefer explicit error handling over panics.
+- Use `Result<T, E>` for all fallible operations.
+- Avoid global mutable state.
+- Prefer `Arc` over `Rc` for thread safety.
+- Use `tokio` for async I/O; avoid blocking calls in async contexts.
+- Document all public APIs and error cases.
+- Refactor repeated code blocks >20 lines.
+- Use clear, descriptive variable and function names.
+- Batch related actions to minimize token and compute usage.
