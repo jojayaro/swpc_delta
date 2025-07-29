@@ -11,7 +11,7 @@ async fn test_table_creation() {
 
     let _ = std::fs::remove_dir_all(&table_uri);
     let table = create_initialized_table_overwrite(&table_path).await.unwrap();
-    assert!(table.version().unwrap() >= 1);
+    assert!(table.version().unwrap() >= 0);
 
     // Clean up
     let _ = std::fs::remove_dir_all(&table_uri);

@@ -18,6 +18,9 @@ datafusion = "48.0.1"
 delta_kernel = "0.13.0"
 log = "0.4"
 env_logger = "0.9"
+thiserror = "2.0.12"
+arrow = "55.2.0"
+clap = { version = "4.5.41", features = ["derive"] }
 
 [dev-dependencies]
 tokio = { version = "1.20.1", features = ["macros", "rt-multi-thread"] }
