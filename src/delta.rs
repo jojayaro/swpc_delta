@@ -61,13 +61,76 @@ pub async fn create_initialized_table_with_columns_overwrite(
     Ok(table)
 }
 
+/// Optimize a Delta Lake table using the table object
+pub async fn optimize_delta_table(table: &DeltaTable) {
+    // Only optimize if table has data
+    if let Some(version) = table.version() {
+        if version > 0 {
+            match DeltaOps::try_from_uri(table.table_uri()).await {
+                Ok(ops) => match ops.optimize().await {
+                    Ok(_) => {
+                        log::info!("Successfully optimized table at {}", table.table_uri());
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to optimize table at {}: {}", table.table_uri(), e);
+                    }
+                },
+                Err(e) => {
+                    log::warn!("Failed to create DeltaOps for {}: {}", table.table_uri(), e);
+                }
+            }
+        } else {
+            log::info!(
+                "Skipping optimization for empty table at {}",
+                table.table_uri()
+            );
+        }
+    } else {
+        log::info!(
+            "Skipping optimization for table with no version at {}",
+            table.table_uri()
+        );
+    }
+}
+
 pub async fn optimize_delta(table_path: &Path) {
-    let _ = DeltaOps::try_from_uri(table_path)
-        .await
-        .unwrap()
-        .optimize()
-        .await
-        .unwrap();
+    // Check if table exists and has data before optimizing
+    match deltalake::open_table(table_path).await {
+        Ok(table) => {
+            // Only optimize if table has data
+            if let Some(version) = table.version() {
+                if version > 0 {
+                    match DeltaOps::try_from_uri(table_path).await {
+                        Ok(ops) => match ops.optimize().await {
+                            Ok(_) => {
+                                log::info!("Successfully optimized table at {}", table_path);
+                            }
+                            Err(e) => {
+                                log::warn!("Failed to optimize table at {}: {}", table_path, e);
+                            }
+                        },
+                        Err(e) => {
+                            log::warn!("Failed to create DeltaOps for {}: {}", table_path, e);
+                        }
+                    }
+                } else {
+                    log::info!("Skipping optimization for empty table at {}", table_path);
+                }
+            } else {
+                log::info!(
+                    "Skipping optimization for table with no version at {}",
+                    table_path
+                );
+            }
+        }
+        Err(e) => {
+            log::warn!(
+                "Cannot optimize non-existent table at {}: {}",
+                table_path,
+                e
+            );
+        }
+    }
 }
 
 pub fn sw_columns() -> Vec<StructField> {
@@ -347,11 +410,67 @@ pub async fn max_solar_wind_timestamp(table_uri: String) -> i64 {
     max_timestamp
 }
 
+/// Vacuum a Delta Lake table using the table object
+pub async fn vacuum_delta_table(table: &DeltaTable) {
+    // Only vacuum if table has data
+    if let Some(version) = table.version() {
+        if version > 0 {
+            match DeltaOps::try_from_uri(table.table_uri()).await {
+                Ok(ops) => match ops.vacuum().await {
+                    Ok(_) => {
+                        log::info!("Successfully vacuumed table at {}", table.table_uri());
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to vacuum table at {}: {}", table.table_uri(), e);
+                    }
+                },
+                Err(e) => {
+                    log::warn!("Failed to create DeltaOps for {}: {}", table.table_uri(), e);
+                }
+            }
+        } else {
+            log::info!("Skipping vacuum for empty table at {}", table.table_uri());
+        }
+    } else {
+        log::info!(
+            "Skipping vacuum for table with no version at {}",
+            table.table_uri()
+        );
+    }
+}
+
 pub async fn vacuum_delta(table_path: &deltalake::Path) {
-    let _ = DeltaOps::try_from_uri(table_path)
-        .await
-        .unwrap()
-        .vacuum()
-        .await
-        .unwrap();
+    // Check if table exists and has data before vacuuming
+    match deltalake::open_table(table_path).await {
+        Ok(table) => {
+            // Only vacuum if table has data
+            if let Some(version) = table.version() {
+                if version > 0 {
+                    match DeltaOps::try_from_uri(table_path).await {
+                        Ok(ops) => match ops.vacuum().await {
+                            Ok(_) => {
+                                log::info!("Successfully vacuumed table at {}", table_path);
+                            }
+                            Err(e) => {
+                                log::warn!("Failed to vacuum table at {}: {}", table_path, e);
+                            }
+                        },
+                        Err(e) => {
+                            log::warn!("Failed to create DeltaOps for {}: {}", table_path, e);
+                        }
+                    }
+                } else {
+                    log::info!("Skipping vacuum for empty table at {}", table_path);
+                }
+            } else {
+                log::info!(
+                    "Skipping vacuum for table with no version at {}",
+                    table_path
+                );
+            }
+        }
+        Err(e) => {
+            log::warn!("Cannot vacuum non-existent table at {}: {}", table_path, e);
+        }
+    }
 }

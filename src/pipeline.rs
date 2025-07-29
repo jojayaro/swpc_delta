@@ -8,8 +8,8 @@ use crate::{
     cli::Args,
     delta::{
         create_initialized_table_with_columns, magnetometer_columns, magnetometer_to_batch,
-        max_magnetometer_timestamp, max_solar_wind_timestamp, optimize_delta, solar_wind_to_batch,
-        sw_columns, vacuum_delta,
+        max_magnetometer_timestamp, max_solar_wind_timestamp, optimize_delta_table,
+        solar_wind_to_batch, sw_columns, vacuum_delta_table,
     },
     error::SwpcDeltaError,
     swpc::{
@@ -33,7 +33,7 @@ pub async fn run_pipeline(args: Args) -> Result<(), SwpcDeltaError> {
 
     // Optimize tables if not skipped
     if !args.skip_optimization {
-        optimize_tables(&args.solar_wind_path, &args.magnetometer_path).await;
+        optimize_tables(&solar_wind_table, &magnetometer_table).await;
     } else {
         info!("Skipping optimization and vacuum operations.");
     }
@@ -191,23 +191,23 @@ async fn ingest_magnetometer_data(
 }
 
 /// Optimize both solar wind and magnetometer tables
-async fn optimize_tables(solar_wind_path: &str, magnetometer_path: &str) {
-    let solar_wind_table_path = deltalake::Path::from(solar_wind_path);
-    let magnetometer_table_path = deltalake::Path::from(magnetometer_path);
-
+async fn optimize_tables(
+    solar_wind_table: &deltalake::DeltaTable,
+    magnetometer_table: &deltalake::DeltaTable,
+) {
     info!("Optimizing solar wind table.");
-    optimize_delta(&solar_wind_table_path).await;
+    optimize_delta_table(solar_wind_table).await;
     info!("Solar wind table optimization complete.");
 
     info!("Vacuuming solar wind table.");
-    vacuum_delta(&solar_wind_table_path).await;
+    vacuum_delta_table(solar_wind_table).await;
     info!("Solar wind table vacuum complete.");
 
     info!("Optimizing magnetometer table.");
-    optimize_delta(&magnetometer_table_path).await;
+    optimize_delta_table(magnetometer_table).await;
     info!("Magnetometer table optimization complete.");
 
     info!("Vacuuming magnetometer table.");
-    vacuum_delta(&magnetometer_table_path).await;
+    vacuum_delta_table(magnetometer_table).await;
     info!("Magnetometer table vacuum complete.");
 }
