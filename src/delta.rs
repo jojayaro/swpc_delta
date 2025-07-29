@@ -18,8 +18,9 @@ use datafusion::prelude::SessionContext;
 use crate::swpc::SolarWind;
 use rayon::prelude::*;
 
-pub async fn create_initialized_table(
+pub async fn create_initialized_table_with_columns(
     table_path: &Path,
+    columns: Vec<StructField>,
 ) -> std::result::Result<DeltaTable, DeltaTableError> {
     // Ensure table directory exists
     std::fs::create_dir_all(table_path.as_ref()).map_err(|e| {
@@ -34,19 +35,28 @@ pub async fn create_initialized_table(
     let table = ops
         .create()
         .with_save_mode(SaveMode::ErrorIfExists)
-        .with_columns(sw_columns())
+        .with_columns(columns)
         .await?;
     Ok(table)
 }
 
-pub async fn create_initialized_table_overwrite(
+pub async fn create_initialized_table_with_columns_overwrite(
     table_path: &Path,
+    columns: Vec<StructField>,
 ) -> std::result::Result<DeltaTable, DeltaTableError> {
+    std::fs::create_dir_all(table_path.as_ref()).map_err(|e| {
+        DeltaTableError::Generic(format!(
+            "Failed to create directory {}: {}",
+            table_path.as_ref(),
+            e
+        ))
+    })?;
+
     let ops = DeltaOps::try_from_uri(table_path).await?;
     let table = ops
         .create()
         .with_save_mode(SaveMode::Overwrite)
-        .with_columns(sw_columns())
+        .with_columns(columns)
         .await?;
     Ok(table)
 }

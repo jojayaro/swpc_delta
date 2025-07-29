@@ -1,8 +1,8 @@
 use deltalake::writer::{DeltaWriter, RecordBatchWriter};
 use deltalake::Path;
 use swpc_delta::delta::{
-    create_initialized_table_overwrite, max_solar_wind_timestamp, optimize_delta,
-    solar_wind_to_batch, vacuum_delta,
+    create_initialized_table_with_columns_overwrite, max_solar_wind_timestamp, optimize_delta,
+    solar_wind_to_batch, vacuum_delta, sw_columns,
 };
 use swpc_delta::swpc::{payload_to_solarwind, solar_wind_payload};
 
@@ -12,7 +12,7 @@ async fn test_table_creation() {
     let table_path = Path::from(table_uri.as_ref());
 
     let _ = std::fs::remove_dir_all(&table_uri);
-    let table = create_initialized_table_overwrite(&table_path)
+    let table = create_initialized_table_with_columns_overwrite(&table_path, sw_columns())
         .await
         .unwrap();
     assert!(table.version().unwrap() >= 0);
@@ -26,7 +26,7 @@ async fn test_data_ingestion() -> Result<(), Box<dyn std::error::Error>> {
     let table_uri = "./test_data_ingestion".to_string();
     let table_path = Path::from(table_uri.as_ref());
 
-    let mut table = create_initialized_table_overwrite(&table_path)
+    let mut table = create_initialized_table_with_columns_overwrite(&table_path, sw_columns())
         .await
         .unwrap();
 
@@ -50,7 +50,7 @@ async fn test_optimize_and_vacuum() -> Result<(), Box<dyn std::error::Error>> {
     let table_uri = "./test_optimize_and_vacuum".to_string();
     let table_path = Path::from(table_uri.as_ref());
 
-    let mut table = create_initialized_table_overwrite(&table_path)
+    let mut table = create_initialized_table_with_columns_overwrite(&table_path, sw_columns())
         .await
         .unwrap();
 
@@ -80,7 +80,7 @@ async fn test_max_solar_wind_timestamp() -> Result<(), Box<dyn std::error::Error
     let table_uri = "./test_max_solar_wind_timestamp".to_string();
     let table_path = Path::from(table_uri.as_ref());
 
-    let mut table = create_initialized_table_overwrite(&table_path)
+    let mut table = create_initialized_table_with_columns_overwrite(&table_path, sw_columns())
         .await
         .unwrap();
 

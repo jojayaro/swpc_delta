@@ -6,9 +6,9 @@ use deltalake::{
 use log::{error, info};
 use swpc_delta::{
     delta::{
-        create_initialized_table, create_initialized_table_magnetometer, magnetometer_to_batch,
-        max_magnetometer_timestamp, max_solar_wind_timestamp, optimize_delta, solar_wind_to_batch,
-        vacuum_delta,
+        create_initialized_table_with_columns, magnetometer_to_batch, max_magnetometer_timestamp,
+        max_solar_wind_timestamp, optimize_delta, solar_wind_to_batch, vacuum_delta, sw_columns,
+        magnetometer_columns,
     },
     error::SwpcDeltaError,
     swpc::{
@@ -63,7 +63,7 @@ async fn main() -> Result<(), SwpcDeltaError> {
         }
         Err(DeltaTableError::NotATable(_)) => {
             info!("Delta Lake table not found. Creating a new one.");
-            create_initialized_table(&table_path).await?
+            create_initialized_table_with_columns(&table_path, sw_columns()).await?
         }
         Err(err) => {
             error!("Failed to open Delta Lake table: {}", err);
@@ -80,7 +80,7 @@ async fn main() -> Result<(), SwpcDeltaError> {
         }
         Err(DeltaTableError::NotATable(_)) => {
             info!("Magnetometer Delta Lake table not found. Creating a new one.");
-            create_initialized_table_magnetometer(&magnetometer_table_path).await?
+            create_initialized_table_with_columns(&magnetometer_table_path, magnetometer_columns()).await?
         }
         Err(err) => {
             error!("Failed to open magnetometer Delta Lake table: {}", err);
