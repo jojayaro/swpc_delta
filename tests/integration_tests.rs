@@ -1,8 +1,10 @@
-
-use swpc_delta::delta::{create_initialized_table_overwrite, optimize_delta, vacuum_delta, max_solar_wind_timestamp, solar_wind_to_batch};
-use swpc_delta::swpc::{payload_to_solarwind, solar_wind_payload};
-use deltalake::writer::{RecordBatchWriter, DeltaWriter};
+use deltalake::writer::{DeltaWriter, RecordBatchWriter};
 use deltalake::Path;
+use swpc_delta::delta::{
+    create_initialized_table_overwrite, max_solar_wind_timestamp, optimize_delta,
+    solar_wind_to_batch, vacuum_delta,
+};
+use swpc_delta::swpc::{payload_to_solarwind, solar_wind_payload};
 
 #[tokio::test]
 async fn test_table_creation() {
@@ -10,7 +12,9 @@ async fn test_table_creation() {
     let table_path = Path::from(table_uri.as_ref());
 
     let _ = std::fs::remove_dir_all(&table_uri);
-    let table = create_initialized_table_overwrite(&table_path).await.unwrap();
+    let table = create_initialized_table_overwrite(&table_path)
+        .await
+        .unwrap();
     assert!(table.version().unwrap() >= 0);
 
     // Clean up
@@ -22,12 +26,15 @@ async fn test_data_ingestion() -> Result<(), Box<dyn std::error::Error>> {
     let table_uri = "./test_data_ingestion".to_string();
     let table_path = Path::from(table_uri.as_ref());
 
-    let mut table = create_initialized_table_overwrite(&table_path).await.unwrap();
+    let mut table = create_initialized_table_overwrite(&table_path)
+        .await
+        .unwrap();
 
     let solar_wind_data = payload_to_solarwind(solar_wind_payload().await?)?;
     let batch = solar_wind_to_batch(&table, solar_wind_data).await;
 
-    let mut writer = RecordBatchWriter::for_table(&table).expect("Failed to make RecordBatchWriter");
+    let mut writer =
+        RecordBatchWriter::for_table(&table).expect("Failed to make RecordBatchWriter");
     writer.write(batch).await.unwrap();
     writer.flush_and_commit(&mut table).await.unwrap();
 
@@ -43,13 +50,16 @@ async fn test_optimize_and_vacuum() -> Result<(), Box<dyn std::error::Error>> {
     let table_uri = "./test_optimize_and_vacuum".to_string();
     let table_path = Path::from(table_uri.as_ref());
 
-    let mut table = create_initialized_table_overwrite(&table_path).await.unwrap();
+    let mut table = create_initialized_table_overwrite(&table_path)
+        .await
+        .unwrap();
 
     // Ingest some data to optimize and vacuum
     let solar_wind_data = payload_to_solarwind(solar_wind_payload().await?)?;
     let batch = solar_wind_to_batch(&table, solar_wind_data).await;
 
-    let mut writer = RecordBatchWriter::for_table(&table).expect("Failed to make RecordBatchWriter");
+    let mut writer =
+        RecordBatchWriter::for_table(&table).expect("Failed to make RecordBatchWriter");
     writer.write(batch).await.unwrap();
     writer.flush_and_commit(&mut table).await.unwrap();
 
@@ -70,13 +80,16 @@ async fn test_max_solar_wind_timestamp() -> Result<(), Box<dyn std::error::Error
     let table_uri = "./test_max_solar_wind_timestamp".to_string();
     let table_path = Path::from(table_uri.as_ref());
 
-    let mut table = create_initialized_table_overwrite(&table_path).await.unwrap();
+    let mut table = create_initialized_table_overwrite(&table_path)
+        .await
+        .unwrap();
 
     // Ingest some data
     let solar_wind_data = payload_to_solarwind(solar_wind_payload().await?)?;
     let batch = solar_wind_to_batch(&table, solar_wind_data).await;
 
-    let mut writer = RecordBatchWriter::for_table(&table).expect("Failed to make RecordBatchWriter");
+    let mut writer =
+        RecordBatchWriter::for_table(&table).expect("Failed to make RecordBatchWriter");
     writer.write(batch).await.unwrap();
     writer.flush_and_commit(&mut table).await.unwrap();
 

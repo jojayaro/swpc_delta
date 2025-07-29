@@ -1,40 +1,42 @@
-use deltalake::{DeltaTableError, writer::{RecordBatchWriter, DeltaWriter}};
+use clap::Parser;
+use deltalake::{
+    writer::{DeltaWriter, RecordBatchWriter},
+    DeltaTableError,
+};
+use log::{error, info};
 use swpc_delta::{
     delta::{
-        create_initialized_table, 
-        create_initialized_table_magnetometer,
-        max_solar_wind_timestamp, 
-        max_magnetometer_timestamp,
-        solar_wind_to_batch, 
-        magnetometer_to_batch,
-        optimize_delta, 
-        vacuum_delta
+        create_initialized_table, create_initialized_table_magnetometer, magnetometer_to_batch,
+        max_magnetometer_timestamp, max_solar_wind_timestamp, optimize_delta, solar_wind_to_batch,
+        vacuum_delta,
     },
+    error::SwpcDeltaError,
     swpc::{
-        filtered_solar_wind_data, 
-        payload_to_solarwind, 
-        solar_wind_payload,
-        filtered_magnetometer_data,
-        payload_to_magnetometer,
-        magnetometer_payload
+        filtered_magnetometer_data, filtered_solar_wind_data, magnetometer_payload,
+        payload_to_magnetometer, payload_to_solarwind, solar_wind_payload,
     },
-    error::SwpcDeltaError
 };
-use log::{info, error};
-use clap::Parser;
 
 #[derive(Parser, Debug)]
 #[command(name = "swpc_delta")]
 #[command(about = "SWPC Solar Wind and Magnetometer data ingestion to Delta Lake")]
 struct Args {
     /// Solar wind Delta Lake table directory path
-    #[clap(long, default_value = "./solar_wind_table", help = "Path to solar wind Delta Lake table directory")]
+    #[clap(
+        long,
+        default_value = "./solar_wind_table",
+        help = "Path to solar wind Delta Lake table directory"
+    )]
     solar_wind_path: String,
-    
+
     /// Magnetometer Delta Lake table directory path
-    #[clap(long, default_value = "./magnetometer_table", help = "Path to magnetometer Delta Lake table directory")]
+    #[clap(
+        long,
+        default_value = "./magnetometer_table",
+        help = "Path to magnetometer Delta Lake table directory"
+    )]
     magnetometer_path: String,
-    
+
     /// Skip optimization and vacuum for faster ingestion
     #[clap(long, help = "Skip table optimization and vacuum operations")]
     skip_optimization: bool,
@@ -47,7 +49,10 @@ async fn main() -> Result<(), SwpcDeltaError> {
 
     let table_uri = args.solar_wind_path.clone();
 
-    info!("Attempting to open solar wind Delta Lake table at: {}", table_uri);
+    info!(
+        "Attempting to open solar wind Delta Lake table at: {}",
+        table_uri
+    );
     let table_path = deltalake::Path::from(table_uri.as_str());
 
     let maybe_table = deltalake::open_table(&table_uri).await;
@@ -55,7 +60,7 @@ async fn main() -> Result<(), SwpcDeltaError> {
         Ok(table) => {
             info!("Successfully opened existing Delta Lake table.");
             table
-        },
+        }
         Err(DeltaTableError::NotATable(_)) => {
             info!("Delta Lake table not found. Creating a new one.");
             create_initialized_table(&table_path).await?
@@ -72,7 +77,7 @@ async fn main() -> Result<(), SwpcDeltaError> {
         Ok(table) => {
             info!("Successfully opened existing magnetometer Delta Lake table.");
             table
-        },
+        }
         Err(DeltaTableError::NotATable(_)) => {
             info!("Magnetometer Delta Lake table not found. Creating a new one.");
             create_initialized_table_magnetometer(&magnetometer_table_path).await?
@@ -90,10 +95,14 @@ async fn main() -> Result<(), SwpcDeltaError> {
     info!("Fetching solar wind payload.");
     let solar_wind_payload_data = solar_wind_payload().await?;
     info!("Filtering solar wind data.");
-    let solar_wind = filtered_solar_wind_data(timestamp, payload_to_solarwind(solar_wind_payload_data)?).await;
+    let solar_wind =
+        filtered_solar_wind_data(timestamp, payload_to_solarwind(solar_wind_payload_data)?).await;
 
     if !solar_wind.is_empty() {
-        info!("{} new solar wind records found. Ingesting data.", solar_wind.len());
+        info!(
+            "{} new solar wind records found. Ingesting data.",
+            solar_wind.len()
+        );
         let batch = solar_wind_to_batch(&table, solar_wind).await;
 
         let mut writer = RecordBatchWriter::for_table(&table)?;
@@ -112,21 +121,27 @@ async fn main() -> Result<(), SwpcDeltaError> {
     info!("Fetching magnetometer payload.");
     let magnetometer_payload_data = magnetometer_payload().await?;
     info!("Filtering magnetometer data.");
-    let magnetometer = filtered_magnetometer_data(magnetometer_timestamp, payload_to_magnetometer(magnetometer_payload_data)?).await;
+    let magnetometer = filtered_magnetometer_data(
+        magnetometer_timestamp,
+        payload_to_magnetometer(magnetometer_payload_data)?,
+    )
+    .await;
 
+    if !magnetometer.is_empty() {
+        info!(
+            "{} new magnetometer records found. Ingesting data.",
+            magnetometer.len()
+        );
+        let batch = magnetometer_to_batch(&magnetometer_table, magnetometer).await;
 
-if !magnetometer.is_empty() {
-    info!("{} new magnetometer records found. Ingesting data.", magnetometer.len());
-    let batch = magnetometer_to_batch(&magnetometer_table, magnetometer).await;
+        let mut writer = RecordBatchWriter::for_table(&magnetometer_table)?;
+        writer.write(batch).await?;
+        writer.flush_and_commit(&mut magnetometer_table).await?;
 
-    let mut writer = RecordBatchWriter::for_table(&magnetometer_table)?;
-    writer.write(batch).await?;
-    writer.flush_and_commit(&mut magnetometer_table).await?;
-
-    info!("Magnetometer data ingestion complete.");
-} else {
-    info!("No new magnetometer records to ingest.");
-}
+        info!("Magnetometer data ingestion complete.");
+    } else {
+        info!("No new magnetometer records to ingest.");
+    }
 
     if !args.skip_optimization {
         info!("Optimizing solar wind table.");
@@ -149,5 +164,4 @@ if !magnetometer.is_empty() {
     }
 
     Ok(())
-
 }

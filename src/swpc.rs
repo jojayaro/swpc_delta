@@ -1,8 +1,8 @@
-use chrono::NaiveDateTime;
-use serde::{Serialize, Deserialize};
-use rayon::prelude::*;
-use serde_json::Value;
 use crate::error::Result;
+use chrono::NaiveDateTime;
+use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Magnetometer {
@@ -24,16 +24,14 @@ pub struct SolarWind {
     pub density: f64,
     pub temperature: f64,
     pub bt: f64,
-    pub bz: f64
+    pub bz: f64,
 }
 
 pub async fn solar_wind_payload() -> Result<Vec<Value>> {
-    let solarwind_url = "https://services.swpc.noaa.gov/products/geospace/propagated-solar-wind.json";
+    let solarwind_url =
+        "https://services.swpc.noaa.gov/products/geospace/propagated-solar-wind.json";
 
-    let response = reqwest::get(solarwind_url)
-        .await?
-        .json::<Value>()
-        .await?;
+    let response = reqwest::get(solarwind_url).await?.json::<Value>().await?;
 
     let array = match response.as_array() {
         Some(arr) => arr,
@@ -52,21 +50,49 @@ pub async fn solar_wind_payload() -> Result<Vec<Value>> {
 pub async fn magnetometer_payload() -> Result<Vec<Value>> {
     let url = "https://services.swpc.noaa.gov/json/goes/primary/magnetometers-6-hour.json";
     let response = reqwest::get(url).await?.json::<Value>().await?;
-    Ok(response.as_array().unwrap_or(&vec![]).par_iter().map(|x| x.clone()).collect())
+    Ok(response
+        .as_array()
+        .unwrap_or(&vec![])
+        .par_iter()
+        .map(|x| x.clone())
+        .collect())
 }
 
 pub fn payload_to_solarwind(response: Vec<Value>) -> Result<Vec<SolarWind>> {
     let mut result = Vec::with_capacity(response.len());
     for x in response.iter() {
-        let timestamp = NaiveDateTime::parse_from_str(&x[0].to_string().replace("\"", ""), "%Y-%m-%d %H:%M:%S%.3f")?
-            .and_utc()
-            .timestamp();
+        let timestamp = NaiveDateTime::parse_from_str(
+            &x[0].to_string().replace("\"", ""),
+            "%Y-%m-%d %H:%M:%S%.3f",
+        )?
+        .and_utc()
+        .timestamp();
         let time_tag = x[0].as_str().unwrap_or("").to_string();
-        let speed = x[1].to_string().replace("\"", "").parse::<f64>().unwrap_or(0.0);
-        let density = x[2].to_string().replace("\"", "").parse::<f64>().unwrap_or(0.0);
-        let temperature = x[3].to_string().replace("\"", "").parse::<f64>().unwrap_or(0.0);
-        let bt = x[7].to_string().replace("\"", "").parse::<f64>().unwrap_or(0.0);
-        let bz = x[6].to_string().replace("\"", "").parse::<f64>().unwrap_or(0.0);
+        let speed = x[1]
+            .to_string()
+            .replace("\"", "")
+            .parse::<f64>()
+            .unwrap_or(0.0);
+        let density = x[2]
+            .to_string()
+            .replace("\"", "")
+            .parse::<f64>()
+            .unwrap_or(0.0);
+        let temperature = x[3]
+            .to_string()
+            .replace("\"", "")
+            .parse::<f64>()
+            .unwrap_or(0.0);
+        let bt = x[7]
+            .to_string()
+            .replace("\"", "")
+            .parse::<f64>()
+            .unwrap_or(0.0);
+        let bz = x[6]
+            .to_string()
+            .replace("\"", "")
+            .parse::<f64>()
+            .unwrap_or(0.0);
 
         result.push(SolarWind {
             timestamp,
@@ -88,7 +114,7 @@ pub fn payload_to_magnetometer(response: Vec<Value>) -> Result<Vec<Magnetometer>
         let timestamp = NaiveDateTime::parse_from_str(&time_tag, "%Y-%m-%dT%H:%M:%SZ")?
             .and_utc()
             .timestamp();
-        
+
         result.push(Magnetometer {
             timestamp,
             time_tag,
@@ -103,14 +129,20 @@ pub fn payload_to_magnetometer(response: Vec<Value>) -> Result<Vec<Magnetometer>
     Ok(result)
 }
 
-pub async fn filtered_solar_wind_data(timestamp: i64, solar_wind: Vec<SolarWind>) -> Vec<SolarWind> {
+pub async fn filtered_solar_wind_data(
+    timestamp: i64,
+    solar_wind: Vec<SolarWind>,
+) -> Vec<SolarWind> {
     solar_wind
         .into_par_iter()
         .filter(|x| x.timestamp > timestamp)
         .collect()
 }
 
-pub async fn filtered_magnetometer_data(timestamp: i64, magnetometer: Vec<Magnetometer>) -> Vec<Magnetometer> {
+pub async fn filtered_magnetometer_data(
+    timestamp: i64,
+    magnetometer: Vec<Magnetometer>,
+) -> Vec<Magnetometer> {
     magnetometer
         .into_par_iter()
         .filter(|x| x.timestamp > timestamp)
